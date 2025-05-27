@@ -71,6 +71,7 @@ to setup
   ]
 
   ; Draw storage-units
+
   let current-level num-levels
   let current-y (maxpycor - buffer-height - 2)
 
@@ -79,13 +80,22 @@ to setup
 
     let bays-left-to-draw (aisles * 2)
     while [bays-left-to-draw > 0] [
-      ask patches with [(pxcor = current-x) and (current-y >= pycor) and (pycor > (current-y - bays-per-level-side))] [
-        ifelse (simulated-capacity < capacity)[
-          set pcolor blue
-          set simulated-capacity simulated-capacity + 1
-        ][set pcolor grey]
 
+      let patch-column patches with [(pxcor = current-x) and (current-y >= pycor) and (pycor > (current-y - bays-per-level-side))]
+      let sorted-column sort-by [[p1 p2] -> [pycor] of p1 > [pycor] of p2] patch-column
+
+      foreach sorted-column [
+        sortedpatch -> ask sortedpatch [
+          ifelse simulated-capacity < capacity [
+            set pcolor blue
+            set simulated-capacity simulated-capacity + 1
+          ]
+          [
+            set pcolor grey
+          ]
+        ]
       ]
+
       set bays-left-to-draw bays-left-to-draw - 1
 
       ifelse (bays-left-to-draw mod 2) = 1 [set current-x current-x + 2][set current-x current-x + 1]
@@ -166,8 +176,8 @@ end
 GRAPHICS-WINDOW
 19
 10
-183
-773
+223
+527
 -1
 -1
 13.0
@@ -181,9 +191,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-11
+14
 0
-57
+38
 0
 0
 1
@@ -213,7 +223,7 @@ INPUTBOX
 960
 121
 capacity
-400.0
+200.0
 1
 0
 Number
@@ -224,7 +234,7 @@ INPUTBOX
 887
 122
 aisles
-4.0
+5.0
 1
 0
 Number
