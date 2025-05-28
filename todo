@@ -1,4 +1,3 @@
 Movimiento de los robots.
-Arreglar el ambiente (En cuanto a la ubicación de buffers).
-Modificar A* para no pisar patches blancos pero que en el modelo base son inaccesibles.
+Crear A* para encontrar patches escape point (Estos no son walkable por default).
 

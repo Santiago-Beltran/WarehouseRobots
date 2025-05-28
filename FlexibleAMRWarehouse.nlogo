@@ -98,13 +98,13 @@ to setup
         set is-waiting-point? true
         ask patch-at 0 -1 [
           set is-escape-point? true
+          set walkable? false
           if patch-at -1 0 != nobody [ask patch-at -1 0 [set walkable? false]]
-          if patch-at 0 -1 != nobody [ask patch-at 0 -1 [set walkable? false]]
         ]
         ask patch-at 1 0 [set is-decision-point? true]
       ]
 
-      ask patch max-pxcor waiting-points-y [set is-escape-point? true]
+      ask patch max-pxcor waiting-points-y [set is-escape-point? true ask patch-at 0 -1 [set walkable? false]]
     ]
 
     let bays-left-to-draw (aisles * 2)
@@ -142,9 +142,7 @@ to setup
   ; generate retrieve-transactions-list
   set transactions-list []
 
-
  generate-amr
-
 end
 
 
