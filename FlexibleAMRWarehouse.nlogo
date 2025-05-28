@@ -1,31 +1,18 @@
 breed [AMR AMRs]
-breed [transaction transactions]
-
-
-directed-link-breed [relations relation]
-
-transaction-own[
- start-patch
- goal-patch
- time-in-warehouse
- transaction-type
-  ]
 
 patches-own[
 is-buffer?
-is-
-]
-
-relations-own
-[
+is-decision-point?
+is-escape-point?
+is-escape'point?
 
 ]
 
 AMR-own [
   speed
-  currently-processing
-  transaction-address
-  type-of-transaction
+  acceleration
+  current-transaction
+  has-payload?
 ]
 
 globals [
@@ -34,9 +21,10 @@ globals [
   bay-width
   buffer-height
   num-of-buffers
-  buffer-list
   simulated-capacity
-  retrieve-transactions-list
+
+  ; transactions-list [[start, goal, time], [start, goal, time], ...]
+  transactions-list
 ]
 
 
@@ -44,6 +32,7 @@ to setup
 
 
   clear-all
+  reset-ticks
 
   ; W = #Aisles * (Aisles Width + (storage unit width * 2)
   ; H = (Buffer heigth) + (# levels (level heigth + 2))
@@ -82,7 +71,7 @@ to setup
 
 
     if (pxcor mod (aisle-width + 2) = 2) [set pcolor green set num-of-buffers num-of-buffers + 1]
-    ask patches with [(pycor = max-pycor) and (pxcor = min-pxcor)] [set pcolor green]
+    ask patches with [(pycor = max-pycor) and (pxcor = min-pxcor)] [set pcolor green set is-buffer? true]
   ]
 
   ; Draw storage-units
@@ -90,8 +79,10 @@ to setup
   let current-level num-levels
   let current-y (maxpycor - buffer-height - 2)
 
+  ; For each level...
   while [current-level > 0] [
     let current-x 0
+
 
     let bays-left-to-draw (aisles * 2)
     while [bays-left-to-draw > 0] [
@@ -124,77 +115,64 @@ to setup
     ifelse pcolor = green [set is-buffer? true][set is-buffer? false]
   ]
 
-  ; generate buffer-list, that is, list of storage orders.
-  set buffer-list n-values num-of-buffers [[]]
-
   ; generate retrieve-transactions-list
-  set retrieve-transactions-list []
+  set transactions-list []
+
+ask patch 2 36 [
+  sprout 1 [
+    set color red
+    set heading 90
+    set shape "car"
+  ]
+]
 
 
 end
 
 to go
   generate-transactions
-  update-buffer-colors
+  update-transactions-time
+  tick
 
 end
 
 to generate-transactions
   let num-transactions random-poisson lambda
-  let r-trans random-binomial num-transactions 0.5
-  let s-trans (num-transactions - r-trans)
+  let retrieve-transactions random-binomial num-transactions 0.5
+  let storage-transactions (num-transactions - retrieve-transactions)
 
-  let overreach (r-trans - count patches with [pcolor = violet])
+
+  ; violet color means occupied warehouse space
+  let overreach (retrieve-transactions - count patches with [pcolor = violet])
   if (overreach > 0) [
-    set r-trans r-trans - overreach
-    set s-trans s-trans + overreach
+    set retrieve-transactions retrieve-transactions - overreach
+    set storage-transactions storage-transactions + overreach
   ]
 
   ;; Retrieval transactions
-  repeat r-trans [
-    let goal one-of patches with [pcolor = violet]
-    let t nobody
-    sprout-transaction 1 [ set t self]
-    init-transaction t "retrieve" goal nobody
-    set retrieve-transactions-list lput t retrieve-transactions-list
+  repeat retrieve-transactions [
+    let start one-of patches with [pcolor = violet]
+    let goal one-of patches with [pcolor = green]
+    let time 0
+
+    set transactions-list lput (list start goal time) transactions-list
   ]
 
   ;; Storage transactions
-  repeat s-trans [
-    let buf-idx random num-of-buffers
+  repeat storage-transactions [
+    let start one-of patches with [pcolor = green]
     let goal one-of patches with [pcolor = blue]
-    let start one-of patches with [is-buffer?]
-    let t nobody
-    sprout-transaction 1 [
-      set t self
-    ]
-    init-transaction t "storage" goal start
-    let updated (lput t item buf-idx buffer-list)
-    set buffer-list replace-item buf-idx buffer-list updated
+    let time 0
+
+    set transactions-list lput (list start goal time) transactions-list
   ]
+
+  print transactions-list
 end
 
-to update-buffer-colors
-  let buf-index 0
-  foreach buffer-list [ buf ->
-    let buf-patch item buf-index (sort patches with [is-buffer?])
-    if buf != [] [
-      ask buf-patch [ set pcolor red ]
-    ]
-    set buf-index buf-index + 1
-  ]
+to update-transactions-time
+  set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
 end
-
-
-to init-transaction [t t-type goal start]
-  ask t [
-    set transaction-type t-type
-    set goal-patch goal
-    set start-patch start
-    set time-in-warehouse random 100
-  ]
-end
-
 
 to-report random-binomial [n p]
   let successes 0
@@ -234,10 +212,10 @@ ticks
 30.0
 
 BUTTON
-897
-269
-964
-303
+893
+265
+960
+299
 NIL
 setup\n
 NIL
@@ -321,6 +299,16 @@ NIL
 NIL
 NIL
 1
+
+CHOOSER
+452
+74
+600
+119
+mode
+mode
+"base-model" "modified-model"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
