@@ -5,6 +5,10 @@ is-buffer?
 is-decision-point?
 is-escape-point?
 is-waiting-point?
+g
+h
+f
+came-from
 ]
 
 AMR-own [
