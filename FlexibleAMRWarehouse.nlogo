@@ -98,13 +98,13 @@ to setup
         set is-waiting-point? true
         ask patch-at 0 -1 [
           set is-escape-point? true
+          set walkable? false
           if patch-at -1 0 != nobody [ask patch-at -1 0 [set walkable? false]]
-          if patch-at 0 -1 != nobody [ask patch-at 0 -1 [set walkable? false]]
         ]
         ask patch-at 1 0 [set is-decision-point? true]
       ]
 
-      ask patch max-pxcor waiting-points-y [set is-escape-point? true]
+      ask patch max-pxcor waiting-points-y [set is-escape-point? true ask patch-at 0 -1 [set walkable? false]]
     ]
 
     let bays-left-to-draw (aisles * 2)
@@ -142,15 +142,7 @@ to setup
   ; generate retrieve-transactions-list
   set transactions-list []
 
-ask patch 4 36 [
-  sprout 1 [
-    set color red
-    set heading 90
-    set shape "car"
-  ]
-]
-
-
+ generate-amr
 end
 
 
@@ -205,6 +197,22 @@ to generate-transactions
 
 
 end
+
+to generate-amr
+  ask one-of patches with [walkable?][
+    sprout-AMR 1[
+    set color red
+     set shape "car"
+     set heading 90
+     set speed 2
+     set acceleration 2
+      set current-transaction []
+      set has-payload? false
+    ]
+  ]
+
+end
+
 
 to update-transactions-time
   set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
@@ -408,6 +416,17 @@ mode
 mode
 "base-model" "modified-model"
 0
+
+INPUTBOX
+1033
+185
+1270
+245
+num-AMR
+3.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
