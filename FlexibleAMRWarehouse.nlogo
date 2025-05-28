@@ -5,7 +5,6 @@ is-buffer?
 is-decision-point?
 is-escape-point?
 is-waiting-point?
-
 ]
 
 AMR-own [
@@ -127,7 +126,7 @@ to setup
   ; generate retrieve-transactions-list
   set transactions-list []
 
-ask patch 2 36 [
+ask patch 5 36 [
   sprout 1 [
     set color red
     set heading 90
@@ -141,6 +140,16 @@ end
 to go
   generate-transactions
   update-transactions-time
+
+
+   let start patch 7 35
+  let goal patch 4 10
+  let path a-star start goal
+
+  ;; Visualizar el camino
+  foreach path [p -> ask p [set pcolor red]]
+
+
   tick
 
 end
@@ -176,7 +185,7 @@ to generate-transactions
     set transactions-list lput (list start goal time) transactions-list
   ]
 
-  print transactions-list
+
 end
 
 to update-transactions-time
@@ -191,6 +200,69 @@ to-report random-binomial [n p]
     ]
   ]
   report successes
+end
+
+;; A* Algorithm Implementation
+
+to-report a-star [start goal]
+  ask patches [
+    set g 99999
+    set h 0
+    set f 0
+    set came-from nobody
+  ]
+
+  let open-list (list start)
+  ask start [
+    set g 0
+    set h manhattan-distance self goal
+    set f g + h
+  ]
+
+  while [length open-list > 0] [
+    let current min-one-of (patch-set open-list) [f]
+
+    if current = goal [
+      report reconstruct-path goal
+    ]
+
+    set open-list remove current open-list
+
+    ask current [
+      let neighbors-list sort neighbors4 with [pcolor = white]
+
+      foreach neighbors-list [
+        neighbor ->
+        ask neighbor [
+          let tentative-g ([g] of current) + 1
+          if tentative-g < g [
+            set came-from current
+            set g tentative-g
+            set h manhattan-distance self goal
+            set f g + h
+            if not member? self open-list [
+              set open-list lput self open-list
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
+
+  report [] ; no path found
+end
+
+to-report manhattan-distance [a b]
+  report abs([pxcor] of a - [pxcor] of b) + abs([pycor] of a - [pycor] of b)
+end
+
+to-report reconstruct-path [current]
+  let path (list current)
+  while [[came-from] of current != nobody] [
+    set current [came-from] of current
+    set path fput current path
+  ]
+  report path
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
