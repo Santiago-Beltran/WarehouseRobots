@@ -5,6 +5,7 @@ is-buffer?
 is-decision-point?
 is-escape-point?
 is-waiting-point?
+walkable?
 g
 h
 f
@@ -65,14 +66,20 @@ to setup
   resize-world  minpxcor maxpxcor minpycor maxpycor
 
 
-  ask patches [set pcolor white]
+  ask patches [
+    set pcolor white
+    if mode = "base-model" [
+    set walkable? true
+    ]
+
+  ]
 
 
   ; Draw buffer zones
 
   ask patches with [pycor = max-pycor][
-    if (pxcor mod (aisle-width + 2) = 2) [set pcolor green set num-of-buffers num-of-buffers + 1]
-    ask patches with [(pycor = max-pycor) and (pxcor = min-pxcor)] [set pcolor green set is-buffer? true]
+    if (pxcor mod (aisle-width + 2) = 2) [set pcolor green set num-of-buffers num-of-buffers + 1 if patch-at 1 0 != nobody [ask patch-at 1 0 [set pcolor green set num-of-buffers num-of-buffers + 1]]]
+    ask patches with [(pycor = max-pycor) and (pxcor = min-pxcor)] [set pcolor green]
   ]
 
   ; Draw storage-units
@@ -89,11 +96,15 @@ to setup
       ask patches with [pycor = waiting-points-y and pxcor mod 3 = 0]
       [
         set is-waiting-point? true
-        ask patch-at 0 -1 [set is-escape-point? true]
+        ask patch-at 0 -1 [
+          set is-escape-point? true
+          set walkable? false
+          if patch-at -1 0 != nobody [ask patch-at -1 0 [set walkable? false]]
+        ]
         ask patch-at 1 0 [set is-decision-point? true]
       ]
 
-      ask patch max-pxcor waiting-points-y [set is-escape-point? true]
+      ask patch max-pxcor waiting-points-y [set is-escape-point? true ask patch-at 0 -1 [set walkable? false]]
     ]
 
     let bays-left-to-draw (aisles * 2)
@@ -111,6 +122,7 @@ to setup
           [
             set pcolor grey
           ]
+          set walkable? false
         ]
       ]
 
@@ -124,13 +136,13 @@ to setup
   ]
 
   ask patches [
-    ifelse pcolor = green [set is-buffer? true][set is-buffer? false]
+    ifelse pcolor = green [set is-buffer? true set walkable? false][set is-buffer? false]
   ]
 
   ; generate retrieve-transactions-list
   set transactions-list []
 
-ask patch 5 36 [
+ask patch 4 36 [
   sprout 1 [
     set color red
     set heading 90
@@ -139,7 +151,10 @@ ask patch 5 36 [
 ]
 
 
+
 end
+
+
 
 to go
   generate-transactions
@@ -233,7 +248,7 @@ to-report a-star [start goal]
     set open-list remove current open-list
 
     ask current [
-      let neighbors-list sort neighbors4 with [pcolor = white]
+      let neighbors-list sort neighbors4 with [walkable?]
 
       foreach neighbors-list [
         neighbor ->
@@ -283,8 +298,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 0
 29
