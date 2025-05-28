@@ -199,7 +199,8 @@ to generate-transactions
 end
 
 to generate-amr
-  ask one-of patches with [walkable?][
+  repeat num-AMR[
+  ask one-of patches with [walkable? and not any? turtles-here ][
     sprout-AMR 1[
     set color red
      set shape "car"
@@ -208,9 +209,9 @@ to generate-amr
      set acceleration 2
       set current-transaction []
       set has-payload? false
-    ]
   ]
-
+  ]
+  ]
 end
 
 
