@@ -1,9 +1,23 @@
 breed [AMR AMRs]
+breed [transaction transactions]
+
 
 directed-link-breed [relations relation]
 
+transaction-own[
+ start-patch
+ goal-patch
+ time-in-warehouse
+ transaction-type
+  ]
 
-relations-own[
+patches-own[
+is-buffer?
+is-
+]
+
+relations-own
+[
 
 ]
 
@@ -22,6 +36,7 @@ globals [
   num-of-buffers
   buffer-list
   simulated-capacity
+  retrieve-transactions-list
 ]
 
 
@@ -105,60 +120,78 @@ to setup
     set current-level current-level - 1
   ]
 
+  ask patches [
+    ifelse pcolor = green [set is-buffer? true][set is-buffer? false]
+  ]
+
   ; generate buffer-list, that is, list of storage orders.
-  set buffer-list n-values num-of-buffers [0]
+  set buffer-list n-values num-of-buffers [[]]
+
+  ; generate retrieve-transactions-list
+  set retrieve-transactions-list []
 
 
 end
 
 to go
   generate-transactions
+  update-buffer-colors
+
 end
 
-to generate-transactions ; observers procedure
+to generate-transactions
   let num-transactions random-poisson lambda
-  let retrieval-transactions random-binomial num-transactions 0.5
+  let r-trans random-binomial num-transactions 0.5
+  let s-trans (num-transactions - r-trans)
 
-  let storage-transactions (num-transactions - retrieval-transactions)
-
-   ; we suppose transactions are on average 50% storage 50% retrieval
-
-
-  let overreach (retrieval-transactions - count patches with [pcolor = violet])
-
-  print overreach
-
-  ; the system is trying to get more than it's stored
+  let overreach (r-trans - count patches with [pcolor = violet])
   if (overreach > 0) [
-    set retrieval-transactions retrieval-transactions - overreach
-    set storage-transactions storage-transactions + overreach
-    ; the order type is redistributed.
+    set r-trans r-trans - overreach
+    set s-trans s-trans + overreach
   ]
 
-  repeat retrieval-transactions [
-    ask one-of patches [set pcolor violet]
+  ;; Retrieval transactions
+  repeat r-trans [
+    let goal one-of patches with [pcolor = violet]
+    let t nobody
+    sprout-transaction 1 [ set t self]
+    init-transaction t "retrieve" goal nobody
+    set retrieve-transactions-list lput t retrieve-transactions-list
   ]
 
-  repeat storage-transactions [
-    ; distribute in conveyors randomly.
+  ;; Storage transactions
+  repeat s-trans [
+    let buf-idx random num-of-buffers
+    let goal one-of patches with [pcolor = blue]
+    let start one-of patches with [is-buffer?]
+    let t nobody
+    sprout-transaction 1 [
+      set t self
+    ]
+    init-transaction t "storage" goal start
+    let updated (lput t item buf-idx buffer-list)
+    set buffer-list replace-item buf-idx buffer-list updated
+  ]
+end
 
-    ; randomly chosen buffer index
-    let random-index random (num-of-buffers)
-    set buffer-list replace-item (random-index) buffer-list (item random-index buffer-list + 1)
+to update-buffer-colors
+  let buf-index 0
+  foreach buffer-list [ buf ->
+    let buf-patch item buf-index (sort patches with [is-buffer?])
+    if buf != [] [
+      ask buf-patch [ set pcolor red ]
+    ]
+    set buf-index buf-index + 1
+  ]
+end
 
-    print buffer-list
 
-    ifelse (random-index = 0)
-    [ask patches with [(pycor = max-pycor) and (pxcor = min-pxcor)] [set pcolor red]]
-    [ask patches with [(pycor = max-pycor) and (pxcor = (min-pxcor + 3 * (random-index) - 1))][set pcolor red]]
-
-
-
-
-    ; I need a coordenate generator for each buffer so that I can change its color.
-    ; pxcors = min-pxcor, min-pxcor + 2, min-pxcor + 5, min-pxcor + 8....
-
-    ; so, if 0: min-pxcor, if higher than 1 (n)   (min-pxcor + 2n) + (n - 1)
+to init-transaction [t t-type goal start]
+  ask t [
+    set transaction-type t-type
+    set goal-patch goal
+    set start-patch start
+    set time-in-warehouse random 100
   ]
 end
 
@@ -176,8 +209,8 @@ end
 GRAPHICS-WINDOW
 19
 10
-223
-527
+222
+526
 -1
 -1
 13.0
