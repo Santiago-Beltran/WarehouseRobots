@@ -4,12 +4,7 @@ patches-own[
 is-buffer?
 is-decision-point?
 is-escape-point?
-is-escape'point?
-g
-  h
-  f
-  came-from
-
+is-waiting-point?
 ]
 
 AMR-own [
@@ -72,8 +67,6 @@ to setup
   ; Draw buffer zones
 
   ask patches with [pycor = max-pycor][
-
-
     if (pxcor mod (aisle-width + 2) = 2) [set pcolor green set num-of-buffers num-of-buffers + 1]
     ask patches with [(pycor = max-pycor) and (pxcor = min-pxcor)] [set pcolor green set is-buffer? true]
   ]
@@ -87,6 +80,17 @@ to setup
   while [current-level > 0] [
     let current-x 0
 
+    if mode = "base-model" [
+        let waiting-points-y current-y + 2
+      ask patches with [pycor = waiting-points-y and pxcor mod 3 = 0]
+      [
+        set is-waiting-point? true
+        ask patch-at 0 -1 [set is-escape-point? true]
+        ask patch-at 1 0 [set is-decision-point? true]
+      ]
+
+      ask patch max-pxcor waiting-points-y [set is-escape-point? true]
+    ]
 
     let bays-left-to-draw (aisles * 2)
     while [bays-left-to-draw > 0] [
@@ -264,7 +268,7 @@ end
 GRAPHICS-WINDOW
 19
 10
-222
+417
 526
 -1
 -1
@@ -279,7 +283,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-14
+29
 0
 38
 0
@@ -311,7 +315,7 @@ INPUTBOX
 960
 121
 capacity
-200.0
+400.0
 1
 0
 Number
@@ -322,7 +326,7 @@ INPUTBOX
 887
 122
 aisles
-5.0
+10.0
 1
 0
 Number
