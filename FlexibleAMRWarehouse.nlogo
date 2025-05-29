@@ -8,6 +8,8 @@ is-waiting-point?
 is-aisle?
 walkable?
 blocked-for-transaction?
+
+; A-star
 g
 h
 f
@@ -19,6 +21,7 @@ AMRs-own [
   acceleration
   current-transaction ; el AMRs está ocupado en una transacción?
   has-payload? ; indica tiene carga o no
+  requesting-end-path?
   path-to-goal
 ]
 
@@ -54,7 +57,7 @@ to setup
   set aisle-width 1
   set bay-width 1
   set buffer-height 1
-  set lambda 3
+  set lambda 0.1
   set num-of-buffers 1
 
   set bays-per-aisle n-values aisles [ i -> 0 ]
@@ -181,13 +184,15 @@ to setup
 generate-amr num-AMR
 end
 
-
-
 to go
+
   generate-transactions
-  update-aisle-density
-  asign-transactions
+  assign-transactions
   update-transactions-time
+  update-aisle-density
+  move-AMRs
+  generate-end-paths-for-amrs
+
 
 tick
 
@@ -201,7 +206,7 @@ to generate-transactions
 
 
   ; violet color means occupied warehouse space
-  let overreach (retrieve-transactions - count patches with [pcolor = violet])
+  let overreach (retrieve-transactions - count patches with [pcolor = violet and not blocked-for-transaction?])
   if (overreach > 0) [
     set retrieve-transactions retrieve-transactions - overreach
     set storage-transactions storage-transactions + overreach
@@ -213,6 +218,8 @@ to generate-transactions
     let goal one-of patches with [pcolor = green]
     let time 0
 
+    if start = nobody [stop] ; If every violet patch is blocked for transaction, stop.
+
     ask start [set blocked-for-transaction? true]
 
     set transactions-list lput (list start goal time) transactions-list
@@ -223,6 +230,8 @@ to generate-transactions
     let start one-of patches with [pcolor = green]
     let goal one-of patches with [pcolor = blue and not blocked-for-transaction?]
     let time 0
+
+    if goal = nobody [stop] ; If every blue patch is blocked for transaction, stop.
 
     ask goal [set blocked-for-transaction? true]
 
@@ -241,9 +250,10 @@ to generate-amr [n]
      set heading 90
      set speed 2
      set acceleration 2
-      set current-transaction []
-      set has-payload? false
-        set path-to-goal []
+     set current-transaction []
+     set has-payload? false
+     set path-to-goal []
+     set requesting-end-path? false
   ]
   ]
   ]
@@ -259,38 +269,41 @@ to match [the-AMR the-transaction ]
 
 end
 
-to update-transactions-time
-  set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
-end
+to move-AMRs
+  ; AMRs with current transaction:
+  ask AMRs with [current-transaction != []]  [
+      ; if they've not picked it up already, follow the path stablished in "find-closest-AMR-to-transaction" (Start point)
+    ifelse has-payload? = false [
+      ; If you've reached the start point, start picking it up. Else, keep moving.
+      ifelse length path-to-goal = 0
+          [storing-retrieving-on-patch item 0 current-transaction
+           set has-payload? true
+           ]
+          [move-to item 0 path-to-goal
+           set path-to-goal remove (item 0 path-to-goal) path-to-goal ; after moving, delete that patch from the sequence.]
+           ]
+    ]
+    ; If you've just picked it up, set your route from wherever you are to the final point.
+    [
+      ;
+      ifelse length path-to-goal = 0
+      [set requesting-end-path? true]
+      [move-to item 0 path-to-goal
+       set path-to-goal remove (item 0 path-to-goal) path-to-goal
 
-to update-aisle-density
-  set AMRs-transaction-step-per-aisle n-values aisles [ i -> 0 ]
-
-  ask AMRs with [current-transaction != []] [
-      let start item 0 current-transaction
-      let goal item 1 current-transaction
-
-      let walkable-start walkable-patch-for start
-      let walkable-goal  walkable-patch-for goal
-
-      let aisle-index 0
-
-      ifelse has-payload? [
-         set aisle-index floor([pxcor] of walkable-goal / 3)
-      ] [
-         set aisle-index floor([pxcor] of walkable-start / 3)
+        ; If you exhausted the generated path, you reached the final point. Therefore, call storing-retrieving-on-patch [goal]. Then, stop
+        if length path-to-goal = 0 [
+          storing-retrieving-on-patch item 1 current-transaction
+          set current-transaction []
+          set has-payload? false
+          stop]
       ]
 
-      let current-value item aisle-index AMRs-transaction-step-per-aisle
-
-      set AMRs-transaction-step-per-aisle replace-item aisle-index AMRs-transaction-step-per-aisle (current-value + 1)
+    ]
   ]
-
-  set aisle-density map [ i -> (item i AMRs-transaction-step-per-aisle / item i bays-per-aisle) ] (n-values aisles [i -> i])
-
 end
 
-to asign-transactions
+to assign-transactions
    ifelse num-of-transactions = 1 and available-AMRS > 0
    [
      let transaction item 0 transactions-list
@@ -320,9 +333,39 @@ to asign-transactions
       match find-closest-AMR-to-transaction chosen-transaction chosen-transaction
     ]
     ]
+
+to update-transactions-time
+  set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
+end
+
+to update-aisle-density
+  set AMRs-transaction-step-per-aisle n-values aisles [ i -> 0 ]
+
+  ask AMRs with [current-transaction != []] [
+      let start item 0 current-transaction
+      let goal item 1 current-transaction
+
+      let walkable-start walkable-patch-for start
+      let walkable-goal  walkable-patch-for goal
+
+      let aisle-index 0
+
+      ifelse has-payload? [
+         set aisle-index floor([pxcor] of walkable-goal / 3)
+      ] [
+         set aisle-index floor([pxcor] of walkable-start / 3)
+      ]
+
+      let current-value item aisle-index AMRs-transaction-step-per-aisle
+
+      set AMRs-transaction-step-per-aisle replace-item aisle-index AMRs-transaction-step-per-aisle (current-value + 1)
+  ]
+
+  set aisle-density map [ i -> (item i AMRs-transaction-step-per-aisle / item i bays-per-aisle) ] (n-values aisles [i -> i])
 end
 
 to update-average-waiting-time
+
   let sum-of-all-times 0
   foreach transactions-list [
   t -> set sum-of-all-times (item 2 t) + sum-of-all-times
@@ -331,12 +374,36 @@ to update-average-waiting-time
   set average-transaction-waiting-time (sum-of-all-times / num-of-transactions)
 end
 
+
+end
+
+to storing-retrieving-on-patch [s-r-patch]
+
+  ifelse [pcolor] of s-r-patch = blue [ask s-r-patch [set pcolor violet set blocked-for-transaction? false]]
+  [if [pcolor] of s-r-patch = violet [ask s-r-patch [set pcolor blue set blocked-for-transaction? false]]]
+
+end
+
+to generate-end-paths-for-amrs
+  foreach sort amrs with [requesting-end-path?] [
+    the-AMR ->
+    let current-patch [patch-here] of the-AMR
+    let walkable-goal  walkable-patch-for item 1 [current-transaction] of the-AMR
+    let route a-star current-patch walkable-goal false
+
+    ask the-AMR [
+        set path-to-goal route
+        set requesting-end-path? false
+    ]
+  ]
+end
+
 to-report walkable-patch-for [find-for-patch]
   let walkable-patch nobody
 
   ask find-for-patch [
-    if patch-at 0 -1 != nobody and [walkable?] of patch-at 0 -1  [set walkable-patch patch-at 0 -1]
-    if patch-at 0 1 != nobody and  [walkable?] of patch-at 0 -1 [set walkable-patch patch-at 0 -1]
+    if patch-at -1 0 != nobody and [walkable?] of patch-at -1 0  [set walkable-patch patch-at -1 0]
+    if patch-at 1 0 != nobody and  [walkable?] of patch-at 1 0 [set walkable-patch patch-at 1 0]
   ]
 
   report walkable-patch
@@ -364,7 +431,7 @@ to-report find-closest-AMR-to-transaction [transaction]
   let AMR-with-min-distance nobody
   let min-distance 99999999
   let free-AMRs AMRs with [current-transaction = []]
-  let target (item 0 transaction)
+  let target walkable-patch-for (item 0 transaction)
   let closest-route []
 
   ; Iterate as observer, not with ask
@@ -377,6 +444,8 @@ to-report find-closest-AMR-to-transaction [transaction]
       set closest-route route
     ]
   ]
+
+  ask AMR-with-min-distance [set path-to-goal closest-route]
 
   report AMR-with-min-distance
 end
@@ -464,8 +533,8 @@ end
 GRAPHICS-WINDOW
 19
 10
-417
-526
+262
+72
 -1
 -1
 13.0
@@ -479,9 +548,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-29
+17
 0
-38
+3
 0
 0
 1
@@ -511,7 +580,7 @@ INPUTBOX
 960
 121
 capacity
-400.0
+12.0
 1
 0
 Number
@@ -522,7 +591,7 @@ INPUTBOX
 887
 122
 aisles
-10.0
+6.0
 1
 0
 Number
@@ -544,7 +613,7 @@ INPUTBOX
 1124
 121
 bays-per-level-side
-17.0
+1.0
 1
 0
 Number
@@ -555,7 +624,7 @@ INPUTBOX
 817
 107
 lambda
-3.0
+0.1
 1
 0
 Number

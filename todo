@@ -1,5 +1,26 @@
 Movimiento de los robots.
-Asignación de tareas:
-  - Verificar, especialmente, la función "find-closest-AMR-to-transaction [transaction]".
+- Progreso actual: Ahora un robot puede moverse y realizar tanto transacciones de almacenamiento como de recuperación. Varios robots se atraviesan, pues no está definida una colisión.
 
-- Implementación AMRs
+1 - Problema: Hay que hallar una forma de especificar cuánto tiempo demora "cargando" o "descargando" la carga, es decir, cuantos ticks demora en el patche de a lado.
+
+  Anoté el siguiente comportamiento para patches verdes (buffers)
+  ticks:
+  1- Se asigna la transacción (Dado que en ese tick se generó transacción)
+  2- Se mueve el robot por primera vez.
+  .
+  .
+  .
+  11- Llega al patch al lado del buffer.
+  12- set has-payload? true
+  13- set path-to-goal (hacia el goal de la transacción (item 1 current-transaction))
+  14- quieto
+  15- Sale del patch de al lado del buffer.
+
+  Como se puede apreciar demora 3 ticks en cargar del buffer, pero no se ha especificado esto en ningún lado. Más interesante aun, no demora lo mismo cuando el patch no es buffer sino una bay (patches azules o violetas).
+
+  Importancia: Es importante pues permite circunstancias lo más parecidas al paper que estudiamos.
+
+ 2 - Problema: Definir trigger policy para evitar colisiones (implementar deadlock and collision prevention algorithm).
+    2.1 - Definir abstracción de colisión / deadlock
+    2.2 - Establecer un contador de colisiones / deadlock
+    2.3 - Implementar trigger policy
