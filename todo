@@ -1,8 +1,2 @@
 Movimiento de los robots.
-<<<<<<< HEAD
-
-
-=======
-Crear A* para encontrar patches escape point (Estos no son walkable por default).
->>>>>>> 5150404bf665337f7a85435ee4ef989477d282fa
-
+- Implementación AMRs
