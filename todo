@@ -1,8 +1,6 @@
 Movimiento de los robots.
-<<<<<<< HEAD
-
-
-=======
-Crear A* para encontrar patches escape point (Estos no son walkable por default).
->>>>>>> 5150404bf665337f7a85435ee4ef989477d282fa
+Asignación de tareas:
+  - Verificar que el algoritmo de asignación de tareas funcione correctamente ejecutando el go e inspeccionando las turtles, viendo que realmente se le asigne al que le quede más cerca al start point del a transacción.
+  - Verificar, especialmente, la función "find-closest-AMR-to-transaction [transaction]".
+  - Verificar que las transacciones al hacer match se eliminan de transactions-list y pasan a atributos de la turtle.
 

@@ -5,7 +5,9 @@ is-buffer?
 is-decision-point?
 is-escape-point?
 is-waiting-point?
+is-aisle?
 walkable?
+blocked-for-transaction?
 g
 h
 f
@@ -15,8 +17,8 @@ came-from
 AMRs-own [
   speed
   acceleration
-  current-transaction ; una lista que la transaccion, como esta explicada abajo.
-  has-payload? ; indica si el robot esta ocupado o no.
+  current-transaction ; el AMRs está ocupado en una transacción?
+  has-payload? ; indica tiene carga o no
   path-to-goal
 ]
 
@@ -30,6 +32,13 @@ globals [
 
   ; transactions-list [[start, goal, time], [start, goal, time], ...]
   transactions-list
+  average-transaction-waiting-time
+  bays-per-aisle ; [Num bays aisle 1, num bays aisle 2, num bays aisle 3, ...]
+  AMRs-transaction-step-per-aisle
+
+  aisle-density ; [density aisle 1, density aisle 2, ...]
+
+
 ]
 
 
@@ -47,6 +56,9 @@ to setup
   set buffer-height 1
   set lambda 3
   set num-of-buffers 1
+
+  set bays-per-aisle n-values aisles [ i -> 0 ]
+  set aisle-density n-values aisles [ i -> 0 ]
 
   ; Set world size
 
@@ -72,6 +84,11 @@ to setup
     if mode = "base-model" [
     set walkable? true
     ]
+    set is-escape-point? false
+    set is-waiting-point? false
+    set is-decision-point? false
+    set is-aisle? false
+    set blocked-for-transaction? false
 
   ]
 
@@ -140,8 +157,26 @@ to setup
     ifelse pcolor = green [set is-buffer? true set walkable? false][set is-buffer? false]
   ]
 
+  ask patches with [pxcor mod 3 = 1]
+  [
+    set is-aisle? true
+    let bays-on-sides 0
+
+    if ([pcolor] of patch-at 1 0 = blue) [set bays-on-sides bays-on-sides + 1]
+    if ([pcolor] of patch-at -1 0 = blue) [set bays-on-sides bays-on-sides + 1]
+
+    let aisle-index floor(pxcor / 3)
+
+    let current-value item aisle-index bays-per-aisle
+
+    set bays-per-aisle replace-item aisle-index bays-per-aisle (current-value + bays-on-sides)
+  ]
+
+
+
   ; generate retrieve-transactions-list
   set transactions-list []
+
 
 generate-amr num-AMR
 end
@@ -150,6 +185,8 @@ end
 
 to go
   generate-transactions
+  update-aisle-density
+  asign-transactions
   update-transactions-time
 
 tick
@@ -172,9 +209,11 @@ to generate-transactions
 
   ;; Retrieval transactions
   repeat retrieve-transactions [
-    let start one-of patches with [pcolor = violet]
+    let start one-of patches with [pcolor = violet and not blocked-for-transaction?]
     let goal one-of patches with [pcolor = green]
     let time 0
+
+    ask start [set blocked-for-transaction? true]
 
     set transactions-list lput (list start goal time) transactions-list
   ]
@@ -182,15 +221,16 @@ to generate-transactions
   ;; Storage transactions
   repeat storage-transactions [
     let start one-of patches with [pcolor = green]
-    let goal one-of patches with [pcolor = blue]
+    let goal one-of patches with [pcolor = blue and not blocked-for-transaction?]
     let time 0
+
+    ask goal [set blocked-for-transaction? true]
 
     set transactions-list lput (list start goal time) transactions-list
   ]
 
 
 end
-
 
 to generate-amr [n]
   repeat n[
@@ -215,18 +255,92 @@ to match [the-AMR the-transaction ]
   set current-transaction the-transaction
   ]
 
+  set transactions-list remove the-transaction transactions-list
+
 end
-
-
-
-
-
 
 to update-transactions-time
   set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
 end
 
+to update-aisle-density
+  set AMRs-transaction-step-per-aisle n-values aisles [ i -> 0 ]
 
+  ask AMRs with [current-transaction != []] [
+      let start item 0 current-transaction
+      let goal item 1 current-transaction
+
+      let walkable-start walkable-patch-for start
+      let walkable-goal  walkable-patch-for goal
+
+      let aisle-index 0
+
+      ifelse has-payload? [
+         set aisle-index floor([pxcor] of walkable-goal / 3)
+      ] [
+         set aisle-index floor([pxcor] of walkable-start / 3)
+      ]
+
+      let current-value item aisle-index AMRs-transaction-step-per-aisle
+
+      set AMRs-transaction-step-per-aisle replace-item aisle-index AMRs-transaction-step-per-aisle (current-value + 1)
+  ]
+
+  set aisle-density map [ i -> (item i AMRs-transaction-step-per-aisle / item i bays-per-aisle) ] (n-values aisles [i -> i])
+
+end
+
+to asign-transactions
+   ifelse num-of-transactions = 1 and available-AMRS > 0
+   [
+     let transaction item 0 transactions-list
+     let closest-AMR find-closest-AMR-to-transaction transaction
+
+     match closest-AMR transaction
+   ]
+   [
+     foreach transactions-list [
+       t -> let time item 2 t
+       if time > average-transaction-waiting-time [
+          ifelse available-AMRs > 0 [
+          match find-closest-AMR-to-transaction t t
+          update-average-waiting-time
+        ] [stop]
+        ]
+      ]
+
+      if ((num-of-transactions <= 0) or (available-AMRs <= 0)) [stop]
+
+
+
+      ;; Match: m and t having minimum distance where AD(t) = min AD(t) for t
+
+    while [num-of-transactions > 0 and available-AMRs > 0] [
+      let chosen-transaction transaction-with-lowest-aisle-density
+      match find-closest-AMR-to-transaction chosen-transaction chosen-transaction
+    ]
+    ]
+end
+
+to update-average-waiting-time
+  let sum-of-all-times 0
+  foreach transactions-list [
+  t -> set sum-of-all-times (item 2 t) + sum-of-all-times
+  ]
+
+  set average-transaction-waiting-time (sum-of-all-times / num-of-transactions)
+end
+
+to-report walkable-patch-for [find-for-patch]
+  let walkable-patch nobody
+
+  ask find-for-patch [
+    if patch-at 0 -1 != nobody and [walkable?] of patch-at 0 -1  [set walkable-patch patch-at 0 -1]
+    if patch-at 0 1 != nobody and  [walkable?] of patch-at 0 -1 [set walkable-patch patch-at 0 -1]
+  ]
+
+  report walkable-patch
+end
 
 to-report random-binomial [n p]
   let successes 0
@@ -238,9 +352,54 @@ to-report random-binomial [n p]
   report successes
 end
 
+to-report available-AMRs
+  report count AMRs with [current-transaction = []]
+end
+
+to-report num-of-transactions
+  report length transactions-list
+end
+
+to-report find-closest-AMR-to-transaction [transaction]
+  let AMR-with-min-distance nobody
+  let min-distance 99999999
+  let free-AMRs AMRs with [current-transaction = []]
+  let target (item 0 transaction)
+  let closest-route []
+
+  ; Iterate as observer, not with ask
+  foreach sort free-AMRs [
+    the-AMR ->
+    let route a-star [patch-here] of the-AMR target false
+    if (length route) <= min-distance [
+      set min-distance length route
+      set AMR-with-min-distance the-AMR
+      set closest-route route
+    ]
+  ]
+
+  report AMR-with-min-distance
+end
+
+to-report transaction-with-lowest-aisle-density
+  let lowest-aisle-density 9999
+  let compared-transaction []
+
+  foreach transactions-list [trans ->
+  let aisle-patch walkable-patch-for item 0 trans
+  let index floor([pxcor] of aisle-patch / 3)
+    if lowest-aisle-density > (item index aisle-density) [
+      set lowest-aisle-density (item index aisle-density)
+      set compared-transaction trans
+    ]
+  ]
+
+  report compared-transaction
+end
+
 ;; A* Algorithm Implementation
 
-to-report a-star [start goal]
+to-report a-star [start goal include-escape-points?]
   ask patches [
     set g 99999
     set h 0
@@ -265,7 +424,8 @@ to-report a-star [start goal]
     set open-list remove current open-list
 
     ask current [
-      let neighbors-list sort neighbors4 with [walkable?]
+      let neighbors-list []
+      ifelse include-escape-points? [set neighbors-list sort neighbors4 with [walkable? or is-escape-point?]][set neighbors-list sort neighbors4 with [walkable?]]
 
       foreach neighbors-list [
         neighbor ->
@@ -433,7 +593,7 @@ INPUTBOX
 1270
 245
 num-AMR
-1.0
+5.0
 1
 0
 Number
