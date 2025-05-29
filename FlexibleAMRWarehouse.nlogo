@@ -1,4 +1,4 @@
-breed [AMR AMRs]
+breed [AMRs AMR]
 
 patches-own[
 is-buffer?
@@ -12,11 +12,12 @@ f
 came-from
 ]
 
-AMR-own [
+AMRs-own [
   speed
   acceleration
-  current-transaction
-  has-payload?
+  current-transaction ; una lista que la transaccion, como esta explicada abajo.
+  has-payload? ; indica si el robot esta ocupado o no.
+  path-to-goal
 ]
 
 globals [
@@ -142,7 +143,7 @@ to setup
   ; generate retrieve-transactions-list
   set transactions-list []
 
- generate-amr
+generate-amr num-AMR
 end
 
 
@@ -151,16 +152,8 @@ to go
   generate-transactions
   update-transactions-time
 
+tick
 
-   let start patch 7 35
-  let goal patch 4 10
-  let path a-star start goal
-
-  ;; Visualizar el camino
-  foreach path [p -> ask p [set pcolor red]]
-
-
-  tick
 
 end
 
@@ -198,10 +191,11 @@ to generate-transactions
 
 end
 
-to generate-amr
-  repeat num-AMR[
+
+to generate-amr [n]
+  repeat n[
   ask one-of patches with [walkable? and not any? turtles-here ][
-    sprout-AMR 1[
+    sprout-AMRs 1[
     set color red
      set shape "car"
      set heading 90
@@ -209,15 +203,30 @@ to generate-amr
      set acceleration 2
       set current-transaction []
       set has-payload? false
+        set path-to-goal []
   ]
   ]
   ]
 end
+
+to match [the-AMR the-transaction ]
+
+  ask the-AMR[
+  set current-transaction the-transaction
+  ]
+
+end
+
+
+
+
 
 
 to update-transactions-time
   set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
 end
+
+
 
 to-report random-binomial [n p]
   let successes 0
@@ -381,10 +390,10 @@ bays-per-level-side
 Number
 
 INPUTBOX
-647
-123
-796
-183
+668
+47
+817
+107
 lambda
 3.0
 1
@@ -424,7 +433,7 @@ INPUTBOX
 1270
 245
 num-AMR
-3.0
+1.0
 1
 0
 Number
