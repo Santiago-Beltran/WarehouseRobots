@@ -333,6 +333,7 @@ to assign-transactions
       match find-closest-AMR-to-transaction chosen-transaction chosen-transaction
     ]
     ]
+end
 
 to update-transactions-time
   set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
@@ -372,9 +373,6 @@ to update-average-waiting-time
   ]
 
   set average-transaction-waiting-time (sum-of-all-times / num-of-transactions)
-end
-
-
 end
 
 to storing-retrieving-on-patch [s-r-patch]
@@ -533,8 +531,8 @@ end
 GRAPHICS-WINDOW
 19
 10
-262
-72
+261
+1462
 -1
 -1
 13.0
@@ -550,7 +548,7 @@ GRAPHICS-WINDOW
 0
 17
 0
-3
+110
 0
 0
 1
@@ -580,7 +578,7 @@ INPUTBOX
 960
 121
 capacity
-12.0
+1200.0
 1
 0
 Number
@@ -613,7 +611,7 @@ INPUTBOX
 1124
 121
 bays-per-level-side
-1.0
+20.0
 1
 0
 Number
@@ -636,7 +634,7 @@ BUTTON
 299
 NIL
 go
-NIL
+T
 1
 T
 OBSERVER
