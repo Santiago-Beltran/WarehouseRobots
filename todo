@@ -21,7 +21,6 @@ Movimiento de los robots.
   Importancia: Es importante pues permite circunstancias lo más parecidas al paper que estudiamos.
 
  2 - Problema: Definir trigger policy para evitar colisiones (implementar deadlock and collision prevention algorithm).
-
-
-
-
+    2.1 - Definir abstracción de colisión / deadlock
+    2.2 - Establecer un contador de colisiones / deadlock
+    2.3 - Implementar trigger policy

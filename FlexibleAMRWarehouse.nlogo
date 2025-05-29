@@ -333,6 +333,9 @@ to assign-transactions
       match find-closest-AMR-to-transaction chosen-transaction chosen-transaction
     ]
     ]
+
+to update-transactions-time
+  set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
 end
 
 to update-aisle-density
@@ -359,7 +362,6 @@ to update-aisle-density
   ]
 
   set aisle-density map [ i -> (item i AMRs-transaction-step-per-aisle / item i bays-per-aisle) ] (n-values aisles [i -> i])
-
 end
 
 to update-average-waiting-time
@@ -372,8 +374,7 @@ to update-average-waiting-time
   set average-transaction-waiting-time (sum-of-all-times / num-of-transactions)
 end
 
-to update-transactions-time
-  set transactions-list map [t -> (list (item 0 t) item 1 t (item 2 t + 1))] transactions-list
+
 end
 
 to storing-retrieving-on-patch [s-r-patch]
@@ -395,8 +396,6 @@ to generate-end-paths-for-amrs
         set requesting-end-path? false
     ]
   ]
-
-
 end
 
 to-report walkable-patch-for [find-for-patch]
@@ -466,7 +465,6 @@ to-report transaction-with-lowest-aisle-density
 
   report compared-transaction
 end
-
 
 ;; A* Algorithm Implementation
 
@@ -664,7 +662,7 @@ INPUTBOX
 1270
 245
 num-AMR
-1.0
+5.0
 1
 0
 Number
