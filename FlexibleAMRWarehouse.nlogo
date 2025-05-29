@@ -72,6 +72,9 @@ to setup
     if mode = "base-model" [
     set walkable? true
     ]
+    set is-escape-point? false
+    set is-waiting-point? false
+    set is-decision-point? false
 
   ]
 
@@ -142,6 +145,7 @@ to setup
 
   ; generate retrieve-transactions-list
   set transactions-list []
+
 
 generate-amr num-AMR
 end
@@ -240,7 +244,7 @@ end
 
 ;; A* Algorithm Implementation
 
-to-report a-star [start goal]
+to-report a-star [start goal include-escape-points?]
   ask patches [
     set g 99999
     set h 0
@@ -265,7 +269,8 @@ to-report a-star [start goal]
     set open-list remove current open-list
 
     ask current [
-      let neighbors-list sort neighbors4 with [walkable?]
+      let neighbors-list []
+      ifelse include-escape-points? [set neighbors-list sort neighbors4 with [walkable? or is-escape-point?]][set neighbors-list sort neighbors4 with [walkable?]]
 
       foreach neighbors-list [
         neighbor ->
@@ -433,7 +438,7 @@ INPUTBOX
 1270
 245
 num-AMR
-1.0
+5.0
 1
 0
 Number
