@@ -1,7 +1,5 @@
 Movimiento de los robots.
 Asignación de tareas:
-  - Verificar que el algoritmo de asignación de tareas funcione correctamente ejecutando el go e inspeccionando las turtles, viendo que realmente se le asigne al que le quede más cerca al start point del a transacción.
   - Verificar, especialmente, la función "find-closest-AMR-to-transaction [transaction]".
-  - Verificar que las transacciones al hacer match se eliminan de transactions-list y pasan a atributos de la turtle.
 
 - Implementación AMRs
