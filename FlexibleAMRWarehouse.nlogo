@@ -220,7 +220,7 @@ to generate-transactions
   ;; Retrieval transactions
   repeat retrieve-transactions [
     let start one-of patches with [pcolor = violet and not blocked-for-transaction?]
-    let goal one-of patches with [pcolor = green]
+    let goal min-one-of patches with [pcolor = green][distance start]
     let time 0
 
     if start = nobody [stop] ; If every violet patch is blocked for transaction, stop.
