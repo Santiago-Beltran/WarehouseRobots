@@ -181,6 +181,7 @@ to setup
   set transactions-list []
 
 
+
 generate-amr num-AMR
 end
 
@@ -279,7 +280,13 @@ to move-AMRs
           [storing-retrieving-on-patch item 0 current-transaction
            set has-payload? true
            ]
-          [move-to item 0 path-to-goal
+          [
+           face item 0 path-to-goal
+
+        ; Deadlock abstraction:
+        if patch-ahead 1 != nobody [if any? turtles-on patch-ahead 1 [stop]]
+        ; End of deadlock abstraction.
+           move-to item 0 path-to-goal
            set path-to-goal remove (item 0 path-to-goal) path-to-goal ; after moving, delete that patch from the sequence.]
            ]
     ]
@@ -288,7 +295,14 @@ to move-AMRs
       ;
       ifelse length path-to-goal = 0
       [set requesting-end-path? true]
-      [move-to item 0 path-to-goal
+      [
+        face item 0 path-to-goal
+        ; Deadlock abstraction:
+        if patch-ahead 1 != nobody [if any? turtles-on patch-ahead 1 [stop]]
+        ; End of deadlock abstraction.
+
+        move-to item 0 path-to-goal
+
        set path-to-goal remove (item 0 path-to-goal) path-to-goal
 
         ; If you exhausted the generated path, you reached the final point. Therefore, call storing-retrieving-on-patch [goal]. Then, stop

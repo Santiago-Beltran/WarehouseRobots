@@ -24,3 +24,11 @@ Movimiento de los robots.
     2.1 - Definir abstracción de colisión / deadlock
     2.2 - Establecer un contador de colisiones / deadlock
     2.3 - Implementar trigger policy
+
+3- Problema: Definir un lambda tal que se utilicen en promedio los AMR en un 95%.
+
+Por hacer: 
+- Un AMR debe viajar al punto de decisión más cercano para esperar una nueva transacción.
+- Si un AMR completó una transacción, y no tiene otra transacción, se mueve al decision point más cercano. Espera ahí hasta que llegue otra transacción.
+- La localización de entrega de un proceso de retrieve es el buffer más cercano, no uno aleatorio.
+
