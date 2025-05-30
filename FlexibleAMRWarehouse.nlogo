@@ -1,5 +1,9 @@
 breed [AMRs AMR]
 
+directed-link-breed [AAMRs AAMR]
+directed-link-breed [DAMRs DAMR]
+
+
 patches-own[
 is-buffer?
 is-decision-point?
@@ -17,14 +21,12 @@ came-from
 ]
 
 AMRs-own [
-  speed
-  acceleration
+  update-path?
   current-transaction ; el AMRs está ocupado en una transacción?
   has-payload? ; indica tiene carga o no
   requesting-end-path?
   path-to-goal
- idle?
-  triggered?
+  triggered-to ; patch triggered to
 ]
 
 globals [
@@ -195,8 +197,9 @@ to go
   assign-transactions
   update-transactions-time
   update-aisle-density
+
   move-AMRs
-  generate-end-paths-for-amrs
+
 
 
 tick
@@ -241,6 +244,7 @@ to generate-transactions
     ask goal [set blocked-for-transaction? true]
 
     set transactions-list lput (list start goal time) transactions-list
+
   ]
 
 
@@ -253,13 +257,11 @@ to generate-amr [n]
     set color red
      set shape "car"
      set heading 90
-     set speed 2
-     set acceleration 2
      set current-transaction []
      set has-payload? false
      set path-to-goal []
      set requesting-end-path? false
-     set idle? true
+     set triggered-to nobody
   ]
   ]
   ]
@@ -269,7 +271,6 @@ to match [the-AMR the-transaction ]
 
   ask the-AMR[
   set current-transaction the-transaction
-    set idle? false
   ]
 
   set transactions-list remove the-transaction transactions-list
@@ -277,50 +278,166 @@ to match [the-AMR the-transaction ]
 end
 
 to move-AMRs
-  ; AMRs with current transaction:
-  ask AMRs with [current-transaction != []]  [
-      ; if they've not picked it up already, follow the path stablished in "find-closest-AMR-to-transaction" (Start point)
-    ifelse has-payload? = false [
-      ; If you've reached the start point, start picking it up. Else, keep moving.
-      ifelse length path-to-goal = 0
-          [storing-retrieving-on-patch item 0 current-transaction
-           set has-payload? true
-           ]
-          [
-           face item 0 path-to-goal
+  update-AMRs-paths
+  ; trigger-policy
 
-        ; Deadlock abstraction:
-        if patch-ahead 1 != nobody [if any? turtles-on patch-ahead 1 [stop]]
-        ; End of deadlock abstraction.
-           move-to item 0 path-to-goal
-           set path-to-goal remove (item 0 path-to-goal) path-to-goal ; after moving, delete that patch from the sequence.]
-           ]
+  ask AMRs [
+    ifelse path-to-goal != [] [
+      face (item 0 path-to-goal)
+      move-to (item 0 path-to-goal)
+      set path-to-goal remove (item 0 path-to-goal) path-to-goal ; after moving, delete that patch from the sequence.
+
+      ; If you completed your assigned path
+      if path-to-goal = [] [
+        movement-conditionals
+      ]
     ]
-    ; If you've just picked it up, set your route from wherever you are to the final point.
     [
-      ;
-      ifelse length path-to-goal = 0
-      [set requesting-end-path? true]
-      [
-        face item 0 path-to-goal
-        ; Deadlock abstraction:
-        if patch-ahead 1 != nobody [if any? turtles-on patch-ahead 1 [stop]]
-        ; End of deadlock abstraction.
+     ; Transaction / Trigger start point ordered you right where you are!
+        movement-conditionals
+    ]
+  ]
+end
 
-        move-to item 0 path-to-goal
+to trigger-policy
+  decide-AAMR-and-DAMR
 
-       set path-to-goal remove (item 0 path-to-goal) path-to-goal
+  ; Ask turtles with any AAMR link to another turtle
 
-        ; If you exhausted the generated path, you reached the final point. Therefore, call storing-retrieving-on-patch [goal]. Then, stop
-        if length path-to-goal = 0 [
-          storing-retrieving-on-patch item 1 current-transaction
-          set current-transaction []
-          set has-payload? false
-          set idle? true
-          stop]
+  ask AMRs with [any? my-out-AAMRs] [
+  foreach sort my-out-AAMRs [
+    the-link ->
+      let target [end2] of the-link
+      let target-triggered [triggered-to] of target
+
+      ; Is DAMR triggered to move to the waiting point?
+      ifelse target-triggered != nobody and [is-waiting-point?] of target-triggered
+        [
+             ; Has it reached it?
+          ifelse [path-to-goal] of target = []
+
+          ; Trigger it to move to the escape point.
+          [trigger-to-escape-point target]
+
+          ; Wait for it to reach the waiting point
+          [set path-to-goal []]
+        ]
+
+
+        [
+         ; Is DAMR not idle?
+        if [current-transaction] of target != []
+        [
+          ; Is DAMR traveling from a bay to a decision point?
+          if [heading] of target = 180 or [heading] of target = 0 [
+          if ([not is-decision-point?] of [patch-here] of target) [set path-to-goal []]
+         ]
+
+
+
+          let closest-escape-patch min-one-of patches with [is-escape-point?] [distance target]
+          let closest-waiting-patch min-one-of patches with [is-waiting-point?] [distance target]
+
+          ifelse any? turtles-on closest-escape-patch and any? turtles-on closest-waiting-patch
+           [
+
+           ]
+           []
+
+
+
+
+
+
+        ; If its target is escape point
+        if target-triggered != nobody and [is-escape-point?] of target-triggered [
+          ; Has it not reached it yet?
+          if [path-to-goal] of target != []
+          ; Then wait!
+          [set path-to-goal []]
+            ]
+
+        ]
+
+        ]
+   ]
+  ]
+
+end
+
+to decide-AAMR-and-DAMR
+  ask AMRs [
+    if path-to-goal != [] [
+      ; Find the first patch in the path that is a waiting or decision point
+      let first-key-patch first filter [p -> [is-waiting-point?] of p or [is-decision-point?] of p] path-to-goal
+
+      if first-key-patch != nobody [
+        let blockers turtles-on first-key-patch
+        if any? blockers [
+          let blocker one-of blockers
+          if blocker != self [
+            amr-create-links blocker
+          ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to movement-conditionals
+  ifelse triggered-to = nobody and current-transaction != [] [
+          ifelse has-payload?[leave-load][pick-load] ;<- here you should move to closest decision point] [pick-load]
+        ]
+        [
+          ; signal AAMR you just arrived at the location you were ordered to.
+        ]
+end
+
+to amr-create-links [turtle-in-front]
+  ; Only create link if not already linked, and not symmetric
+  if not member? turtle-in-front [end2] of my-out-AAMRs [
+    if not member? self [end2] of [my-out-AAMRs] of turtle-in-front [
+      create-AAMRs-to turtle-in-front
+      ask turtle-in-front [create-DAMRs-to myself]
+    ]
+  ]
+end
+
+to update-AMRs-paths ; Observer method
+
+  foreach sort amrs [
+    the-AMR ->
+    let transaction [current-transaction] of the-AMR
+    let triggered-patch [triggered-to] of the-AMR
+    let current-patch [patch-here] of the-AMR
+    let route []
+
+    ; El AMR tiene una transacción (Ya la recogio / No la recogio) y no ha sido triggered.
+    if (triggered-patch = nobody) and (transaction != []) [
+      let walkable-goal current-patch
+      ifelse [has-payload?] of the-AMR
+        [set walkable-goal walkable-patch-for (item 1 transaction)]
+        [set walkable-goal walkable-patch-for (item 0 transaction)]
+      set route a-star current-patch walkable-goal false
+
+      ; print route (Uncomment if you want to see magic)
+    ]
+
+    ; La transacción del AMR está vacía.
+    if transaction  = [][
+      let closest-decision-point min-one-of patches with [is-decision-point?] [distance current-patch]
+      set route a-star current-patch closest-decision-point false
+    ]
+
+    ; EL AMR está triggered por un patch.
+    if triggered-patch != nobody [
+      set route a-star current-patch triggered-patch true
+    ]
+
+    ask the-AMR [
+        set path-to-goal route
       ]
 
-    ]
   ]
 end
 
@@ -397,24 +514,29 @@ to update-average-waiting-time
 end
 
 to storing-retrieving-on-patch [s-r-patch]
-
   ifelse [pcolor] of s-r-patch = blue [ask s-r-patch [set pcolor violet set blocked-for-transaction? false]]
   [if [pcolor] of s-r-patch = violet [ask s-r-patch [set pcolor blue set blocked-for-transaction? false]]]
+end
+
+to pick-load
+  storing-retrieving-on-patch (item 0 current-transaction)
+  set has-payload? true
 
 end
 
-to generate-end-paths-for-amrs
-  foreach sort amrs with [requesting-end-path?] [
-    the-AMR ->
-    let current-patch [patch-here] of the-AMR
-    let walkable-goal  walkable-patch-for item 1 [current-transaction] of the-AMR
-    let route a-star current-patch walkable-goal false
+to leave-load
+  storing-retrieving-on-patch (item 1 current-transaction)
+  set has-payload? false
+  set current-transaction []
+end
 
-    ask the-AMR [
-        set path-to-goal route
-        set requesting-end-path? false
-    ]
-  ]
+; Trigger policy
+to trigger-to-escape-point [target]
+  ask target [set triggered-to min-one-of patches with [is-escape-point?] [distance myself]]
+end
+
+to trigger-to-waiting-point [target]
+  ask target [set triggered-to min-one-of patches with [is-waiting-point?] [distance myself]]
 end
 
 to-report walkable-patch-for [find-for-patch]
@@ -426,16 +548,6 @@ to-report walkable-patch-for [find-for-patch]
   ]
 
   report walkable-patch
-end
-
-to-report random-binomial [n p]
-  let successes 0
-  repeat n [
-    if random-float 1 < p [
-      set successes successes + 1
-    ]
-  ]
-  report successes
 end
 
 to-report available-AMRs
@@ -506,7 +618,8 @@ to-report a-star [start goal include-escape-points?]
     let current min-one-of (patch-set open-list) [f]
 
     if current = goal [
-      report reconstruct-path goal
+      let result reconstruct-path goal
+      report (remove item 0 result result)
     ]
 
     set open-list remove current open-list
@@ -548,12 +661,23 @@ to-report reconstruct-path [current]
   ]
   report path
 end
+
+;; Binomial distribution generator
+to-report random-binomial [n p]
+  let successes 0
+  repeat n [
+    if random-float 1 < p [
+      set successes successes + 1
+    ]
+  ]
+  report successes
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 19
 10
-261
-1462
+495
+279
 -1
 -1
 13.0
@@ -567,9 +691,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-17
+35
 0
-110
+19
 0
 0
 1
@@ -599,7 +723,7 @@ INPUTBOX
 960
 121
 capacity
-1200.0
+400.0
 1
 0
 Number
@@ -610,7 +734,7 @@ INPUTBOX
 887
 122
 aisles
-6.0
+12.0
 1
 0
 Number
@@ -632,7 +756,7 @@ INPUTBOX
 1124
 121
 bays-per-level-side
-20.0
+17.0
 1
 0
 Number
@@ -666,10 +790,10 @@ NIL
 1
 
 CHOOSER
-452
-74
-600
-119
+514
+48
+662
+93
 mode
 mode
 "base-model" "modified-model"
@@ -681,7 +805,7 @@ INPUTBOX
 1270
 245
 num-AMR
-5.0
+4.0
 1
 0
 Number
