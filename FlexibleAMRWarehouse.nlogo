@@ -23,6 +23,8 @@ AMRs-own [
   has-payload? ; indica tiene carga o no
   requesting-end-path?
   path-to-goal
+ idle?
+  triggered?
 ]
 
 globals [
@@ -181,7 +183,10 @@ to setup
   set transactions-list []
 
 
+
 generate-amr num-AMR
+
+
 end
 
 to go
@@ -254,6 +259,7 @@ to generate-amr [n]
      set has-payload? false
      set path-to-goal []
      set requesting-end-path? false
+     set idle? true
   ]
   ]
   ]
@@ -263,6 +269,7 @@ to match [the-AMR the-transaction ]
 
   ask the-AMR[
   set current-transaction the-transaction
+    set idle? false
   ]
 
   set transactions-list remove the-transaction transactions-list
@@ -296,6 +303,7 @@ to move-AMRs
           storing-retrieving-on-patch item 1 current-transaction
           set current-transaction []
           set has-payload? false
+          set idle? true
           stop]
       ]
 
