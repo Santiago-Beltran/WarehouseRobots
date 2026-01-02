@@ -1,3 +1,1 @@
-Final Work for the Course: Modeling and Simulation 3
-
-Our group chose the topic of intelligent robots in warehouses for our final project. We based this project on the paper "Autonomous Mobile Robot Travel Under Deadlock and Collision Prevention Algorithms by Agent-Based Modeling in Warehouses." The objective was to strengthen our skills in agent-based modeling and to apply the knowledge we have acquired in analyzing ABM models.
+Agent-based modeling applied to warehouses robots based on the paper "Autonomous Mobile Robot Travel Under Deadlock and Collision Prevention Algorithms by Agent-Based Modeling in Warehouses". 
